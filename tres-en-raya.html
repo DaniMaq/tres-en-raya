@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>3 en raya</title>
+<style>
+:root{--bg:#f6f4ef;--fg:#1f1d1a;--card:#fff;--line:#d9d4c8;--x:#d1493f;--o:#2f6fb5;--win:#ffe9a8;--mut:#6f6a60;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#1a1917;--fg:#f1ede4;--card:#262421;--line:#3b3833;--x:#ff7a6e;--o:#6fb0f2;--win:#4a3f1c;--mut:#a39d90}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#1a1917;--fg:#f1ede4;--card:#262421;--line:#3b3833;--x:#ff7a6e;--o:#6fb0f2;--win:#4a3f1c;--mut:#a39d90}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh;display:flex;justify-content:center}
+main{width:100%;max-width:420px;padding:20px 16px;text-align:center}
+h1{font-size:1.6rem;margin:8px 0 14px}
+.opts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+.seg button{border:0;background:transparent;color:var(--fg);padding:8px 12px;font-size:.9rem;cursor:pointer}
+.seg button.on{background:var(--fg);color:var(--bg)}
+.score{display:flex;justify-content:space-around;margin:6px 0 12px;font-size:.95rem;color:var(--mut)}
+.score b{display:block;font-size:1.5rem;color:var(--fg)}
+#status{min-height:1.6em;font-weight:600;margin-bottom:12px}
+#board{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;aspect-ratio:1;max-width:360px;margin:0 auto}
+.c{background:var(--card);border:1px solid var(--line);border-radius:12px;font-size:min(16vw,4rem);font-weight:700;cursor:pointer;color:var(--fg);display:flex;align-items:center;justify-content:center}
+.c.X{color:var(--x)}.c.O{color:var(--o)}
+.c.w{background:var(--win)}
+.c:disabled{cursor:default}
+#reset{margin-top:18px;padding:10px 20px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);font-size:1rem;cursor:pointer}
+</style>
+</head>
+<body>
+<main>
+<h1>3 en raya</h1>
+<div class="opts">
+<div class="seg" id="mode"><button data-v="1" class="on">1 jugador</button><button data-v="2">2 jugadores</button></div>
+<div class="seg" id="lvl"><button data-v="easy">Fácil</button><button data-v="hard" class="on">Imbatible</button></div>
+</div>
+<div class="score"><div>X<b id="sx">0</b></div><div>Empates<b id="sd">0</b></div><div>O<b id="so">0</b></div></div>
+<div id="status"></div>
+<div id="board"></div>
+<button id="reset">Nueva partida</button>
+</main>
+<script>
+const L=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+let b,turn,over,mode=1,lvl='hard',sc={X:0,O:0,D:0};
+const $=id=>document.getElementById(id),bd=$('board'),st=$('status');
+for(let i=0;i<9;i++){const c=document.createElement('button');c.className='c';c.onclick=()=>play(i);bd.appendChild(c)}
+const cells=[...bd.children];
+function win(a){for(const l of L)if(a[l[0]]&&a[l[0]]===a[l[1]]&&a[l[0]]===a[l[2]])return l;return null}
+function msg(){st.textContent=mode===1?(turn==='X'?'Tu turno (X)':'Pensando…'):'Turno de '+turn}
+function start(){b=Array(9).fill('');turn='X';over=false;cells.forEach(c=>{c.textContent='';c.className='c';c.disabled=false});msg()}
+function play(i){
+ if(over||b[i]||(mode===1&&turn==='O'))return;
+ move(i);
+ if(!over&&mode===1)setTimeout(ai,350);
+}
+function move(i){
+ b[i]=turn;cells[i].textContent=turn;cells[i].classList.add(turn);cells[i].disabled=true;
+ const w=win(b);
+ if(w){over=true;w.forEach(k=>cells[k].classList.add('w'));sc[turn]++;st.textContent=mode===1?(turn==='X'?'¡Has ganado!':'Ha ganado la máquina'):'¡Gana '+turn+'!';cells.forEach(c=>c.disabled=true);upd();return}
+ if(b.every(x=>x)){over=true;sc.D++;st.textContent='Empate';upd();return}
+ turn=turn==='X'?'O':'X';msg();
+}
+function upd(){$('sx').textContent=sc.X;$('so').textContent=sc.O;$('sd').textContent=sc.D}
+function mm(a,p){
+ const w=win(a);if(w)return a[w[0]]==='O'?1:-1;
+ if(a.every(x=>x))return 0;
+ let best=p==='O'?-2:2;
+ for(let i=0;i<9;i++)if(!a[i]){a[i]=p;const s=mm(a,p==='O'?'X':'O');a[i]='';best=p==='O'?Math.max(best,s):Math.min(best,s)}
+ return best;
+}
+function ai(){
+ if(over)return;
+ const free=b.map((v,i)=>v?null:i).filter(v=>v!==null);
+ let pick;
+ if(lvl==='easy')pick=free[Math.floor(Math.random()*free.length)];
+ else{let best=-2;for(const i of free){b[i]='O';const s=mm(b,'X');b[i]='';if(s>best){best=s;pick=i}}}
+ move(pick);
+}
+function seg(id,fn){$(id).onclick=e=>{const v=e.target.dataset.v;if(!v)return;[...$(id).children].forEach(x=>x.classList.toggle('on',x===e.target));fn(v);}}
+seg('mode',v=>{mode=+v;$('lvl').style.display=mode===1?'':'none';sc={X:0,O:0,D:0};upd();start()});
+seg('lvl',v=>{lvl=v;start()});
+$('reset').onclick=start;
+start();
+</script>
+</body>
+</html>
